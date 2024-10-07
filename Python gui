@@ -1,0 +1,118 @@
+import tkinter as tk
+
+# Create the main window
+window = tk.Tk()
+window.title("Two Pass Assembler")  # Set the window title
+window.geometry('600x400')  # Set window size
+
+# Label for assembly code input
+tk.Label(window, text="Enter Assembly Code Below:", font=("Helvetica", 14)).pack()
+
+# Text input area for the assembly code
+code_input = tk.Text(window, height=10, width=60)
+code_input.pack()
+
+# Frame to hold the buttons
+button_frame = tk.Frame(window)
+button_frame.pack(pady=10)
+
+# Symbol table to hold labels and their locations
+symbol_table = {}
+
+# Function to update the output box with new text
+def update_output(text):
+    output_box.config(state=tk.NORMAL)  # Make output box editable
+    output_box.delete("1.0", tk.END)  # Clear previous output
+    output_box.insert(tk.END, text)  # Insert new text
+    output_box.config(state=tk.DISABLED)  # Make output box read-only
+
+# Pass One: Build the symbol table and track locations
+def pass_one():
+    global symbol_table  # Use the global symbol table
+    symbol_table = {}  # Clear the symbol table
+    code = code_input.get("1.0", "end-1c").splitlines()  # Get assembly code from input and split into lines
+    location_counter = 0  # Initialize location counter
+
+    # Iterate through each line of code
+    for line in code:
+        line = line.strip()  # Remove extra whitespace
+        if line:  # Skip empty lines
+            parts = line.split()  # Split the line into parts
+
+            # Check for START directive
+            if parts[0] == "START":
+                location_counter = int(parts[1])  # Set starting location
+                continue  # Move to the next line
+
+            # Check for DATA directive
+            if len(parts) > 1 and parts[1] == "DATA":
+                label = parts[0]  # Get the label
+                symbol_table[label] = location_counter  # Add label to the symbol table
+                location_counter += 1  # Increment location counter
+            # Check for LOAD or STORE instruction
+            elif parts[0] == "LOAD" or parts[0] == "STORE":
+                location_counter += 1  # Move location counter for instruction
+            else:
+                # Handle labels followed by instructions (e.g., 'LABEL: LOAD ALPHA')
+                if ":" in parts[0]:
+                    label = parts[0].replace(":", "")  # Get the label name
+                    symbol_table[label] = location_counter  # Add to symbol table
+                    location_counter += 1  # Increment location counter
+
+    # Display the symbol table after pass one
+    output = "Pass One Complete: Processed symbol table:\n" + str(symbol_table)
+    update_output(output)
+
+# Pass Two: Generate machine code using the symbol table
+def pass_two():
+    if not symbol_table:  # Ensure Pass One has been run
+        update_output("Error: Run Pass One first!")
+        return
+    
+    code = code_input.get("1.0", "end-1c").splitlines()  # Get assembly code again
+    machine_code = []  # List to hold the generated machine code
+
+    # Iterate through each line of code
+    for line in code:
+        line = line.strip()  # Remove extra whitespace
+        if line:  # Skip empty lines
+            parts = line.split()  # Split the line into parts
+
+            # Ignore START and DATA directives
+            if parts[0] == "START" or (len(parts) > 1 and parts[1] == "DATA"):
+                continue
+
+            # Generate machine code for LOAD instruction
+            if parts[0] == "LOAD":
+                operand = parts[1]  # Get operand
+                if operand in symbol_table:  # Check if operand exists in symbol table
+                    machine_code.append(f"LOAD {symbol_table[operand]}")  # Convert to machine code
+                else:
+                    machine_code.append("LOAD Unknown")  # Handle undefined symbols
+
+            # Generate machine code for STORE instruction
+            elif parts[0] == "STORE":
+                operand = parts[1]  # Get operand
+                if operand in symbol_table:  # Check if operand exists in symbol table
+                    machine_code.append(f"STORE {symbol_table[operand]}")  # Convert to machine code
+                else:
+                    machine_code.append("STORE Unknown")  # Handle undefined symbols
+
+            # Handle unsupported instructions
+            else:
+                machine_code.append("NOP")  # No operation for unrecognized instructions
+
+    # Display the generated machine code after pass two
+    output = "Pass Two Complete: Machine code:\n" + "\n".join(machine_code)
+    update_output(output)
+
+# Buttons to run Pass One and Pass Two
+tk.Button(button_frame, text="Run Pass One", command=pass_one, bg="black", fg="white", width=15).grid(row=0, column=0, padx=10)
+tk.Button(button_frame, text="Run Pass Two", command=pass_two, bg="black", fg="white", width=15).grid(row=0, column=1, padx=10)
+
+# Output box to display results
+output_box = tk.Text(window, height=5, width=60, state=tk.DISABLED)
+output_box.pack(pady=10)
+
+# Start the Tkinter event loop
+window.mainloop()
